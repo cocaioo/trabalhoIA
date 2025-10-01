@@ -3,261 +3,261 @@ import sys
 import time
 from collections import deque
 
-N = 3
-TILE_SIZE = 180  # aumente este valor para escalar toda a interface
-# Espaço reservado embaixo para métricas e botões — proporcional ao TILE_SIZE
-METRICS_SPACE = int(TILE_SIZE * 1.4)
-WIDTH = N * TILE_SIZE
-HEIGHT = N * TILE_SIZE + METRICS_SPACE  # espaço para métricas e botões
+TAMANHO = 3
+TAMANHO_PECA = 180
+ESPACO_METRICAS = int(TAMANHO_PECA * 1.4)
+LARGURA = TAMANHO * TAMANHO_PECA
+ALTURA = TAMANHO * TAMANHO_PECA + ESPACO_METRICAS
 FPS = 2
 
-class PuzzleState:
-    def __init__(self, board, x, y, depth):
-        self.board = board
-        self.x = x
-        self.y = y
-        self.depth = depth
 
-moves = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+class EstadoPuzzle:
+    def __init__(self, tabuleiro, linha_zero, coluna_zero, profundidade):
+        self.tabuleiro = tabuleiro
+        self.linha_zero = linha_zero
+        self.coluna_zero = coluna_zero
+        self.profundidade = profundidade
 
-def is_goal_state(board):
-    return board == [[1, 2, 3], [4, 5, 6], [7, 8, 0]]
 
-def is_valid(x, y):
-    return 0 <= x < N and 0 <= y < N
+MOVIMENTOS = [(0, -1), (0, 1), (-1, 0), (1, 0)]
 
-def find_zero(board):
-    for i in range(N):
-        for j in range(N):
-            if board[i][j] == 0:
+
+def eh_estado_objetivo(tabuleiro):
+    return tabuleiro == [[1, 2, 3], [4, 5, 6], [7, 8, 0]]
+
+
+def eh_valido(x, y):
+    return 0 <= x < TAMANHO and 0 <= y < TAMANHO
+
+
+def encontra_zero(tabuleiro):
+    for i in range(TAMANHO):
+        for j in range(TAMANHO):
+            if tabuleiro[i][j] == 0:
                 return i, j
-    raise ValueError("Board must contain a 0")
+    raise ValueError("O tabuleiro deve conter um 0")
 
-# --- Pygame helpers ---
-def draw_board(screen, board, font, metrics=None, buttons=None):
-    screen.fill((30, 30, 30))
-    for i in range(N):
-        for j in range(N):
-            value = board[i][j]
-            rect = pygame.Rect(j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            if value == 0:
-                pygame.draw.rect(screen, (50, 50, 50), rect)
+
+def desenhar_tabuleiro(tela, tabuleiro, fonte, metricas=None, botoes=None):
+    tela.fill((30, 30, 30))
+    for i in range(TAMANHO):
+        for j in range(TAMANHO):
+            valor = tabuleiro[i][j]
+            rect = pygame.Rect(j * TAMANHO_PECA, i * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA)
+            if valor == 0:
+                pygame.draw.rect(tela, (50, 50, 50), rect)
             else:
-                pygame.draw.rect(screen, (0, 150, 200), rect)
-                text = font.render(str(value), True, (255, 255, 255))
-                text_rect = text.get_rect(center=rect.center)
-                screen.blit(text, text_rect)
-            border_w = max(2, TILE_SIZE // 33)
-            pygame.draw.rect(screen, (20, 20, 20), rect, border_w)
+                pygame.draw.rect(tela, (0, 150, 200), rect)
+                texto = fonte.render(str(valor), True, (255, 255, 255))
+                texto_rect = texto.get_rect(center=rect.center)
+                tela.blit(texto, texto_rect)
+            borda = max(2, TAMANHO_PECA // 33)
+            pygame.draw.rect(tela, (20, 20, 20), rect, borda)
 
-    if metrics:
-        small_font_size = max(14, int(TILE_SIZE * 0.24))
-        small_font = pygame.font.SysFont("Arial", small_font_size, bold=True)
-        lines = [
-            f"N\u00f3s gerados: {metrics['generated']}",
-            f"N\u00f3s verificados: {metrics['expanded']}",
-            f"Profundidade: {metrics['depth']}",
-            f"Tempo: {metrics['time']:.2f}s"
+    if metricas:
+        tamanho_fonte_pequena = max(14, int(TAMANHO_PECA * 0.24))
+        fonte_pequena = pygame.font.SysFont("Arial", tamanho_fonte_pequena, bold=True)
+        linhas = [
+            f"N\u00f3s gerados: {metricas['generated']}",
+            f"N\u00f3s verificados: {metricas['expanded']}",
+            f"Profundidade: {metricas['depth']}",
+            f"Tempo: {metricas['time']:.2f}s"
         ]
-        for idx, line in enumerate(lines):
-            text = small_font.render(line, True, (255, 255, 255))
-            text_y = HEIGHT - METRICS_SPACE + 10 + idx * int(TILE_SIZE * 0.25)
-            screen.blit(text, (10, text_y))
+        for idx, linha in enumerate(linhas):
+            texto = fonte_pequena.render(linha, True, (255, 255, 255))
+            y_texto = ALTURA - ESPACO_METRICAS + 10 + idx * int(TAMANHO_PECA * 0.25)
+            tela.blit(texto, (10, y_texto))
 
-    if buttons:
-        btn_font_size = max(16, int(TILE_SIZE * 0.22))
-        btn_font = pygame.font.SysFont("Arial", btn_font_size, bold=True)
-        for text, rect in buttons:
-            pygame.draw.rect(screen, (100, 100, 100), rect)
-            pygame.draw.rect(screen, (255, 255, 255), rect, max(2, TILE_SIZE // 50))
-            label = btn_font.render(text, True, (255, 255, 255))
+    if botoes:
+        tamanho_fonte_btn = max(16, int(TAMANHO_PECA * 0.22))
+        fonte_btn = pygame.font.SysFont("Arial", tamanho_fonte_btn, bold=True)
+        for texto, rect in botoes:
+            pygame.draw.rect(tela, (100, 100, 100), rect)
+            pygame.draw.rect(tela, (255, 255, 255), rect, max(2, TAMANHO_PECA // 50))
+            label = fonte_btn.render(texto, True, (255, 255, 255))
             label_rect = label.get_rect(center=rect.center)
-            screen.blit(label, label_rect)
+            tela.blit(label, label_rect)
 
     pygame.display.flip()
 
-def input_start_board():
+
+def entrada_tabuleiro_inicial():
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    tela = pygame.display.set_mode((LARGURA, ALTURA))
     pygame.display.set_caption("Defina o estado inicial")
-    font_size = max(24, int(TILE_SIZE * 0.44))
-    font = pygame.font.SysFont("Arial", font_size, bold=True)
+    tamanho_fonte = max(24, int(TAMANHO_PECA * 0.44))
+    fonte = pygame.font.SysFont("Arial", tamanho_fonte, bold=True)
 
-    board = [[None for _ in range(N)] for _ in range(N)]
-    current_num = 1
-    chosen_algo = None
+    tabuleiro = [[None for _ in range(TAMANHO)] for _ in range(TAMANHO)]
+    numero_atual = 1
+    algoritmo_escolhido = None
 
-    btn_w = int(TILE_SIZE * 1.4)
-    btn_h = int(TILE_SIZE * 0.35)
-    left_x = 30
-    bfs_btn = pygame.Rect(left_x, HEIGHT - btn_h - 20, btn_w, btn_h)
-    dfs_btn = pygame.Rect(left_x + btn_w + 30, HEIGHT - btn_h - 20, btn_w, btn_h)
+    largura_btn = int(TAMANHO_PECA * 1.4)
+    altura_btn = int(TAMANHO_PECA * 0.35)
+    esquerda_x = 30
+    btn_bfs = pygame.Rect(esquerda_x, ALTURA - altura_btn - 20, largura_btn, altura_btn)
+    btn_dfs = pygame.Rect(esquerda_x + largura_btn + 30, ALTURA - altura_btn - 20, largura_btn, altura_btn)
 
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            elif evento.type == pygame.MOUSEBUTTONDOWN:
                 x, y = pygame.mouse.get_pos()
-                row, col = y // TILE_SIZE, x // TILE_SIZE
-                if row < N and col < N and current_num <= 8 and board[row][col] is None:
-                    board[row][col] = current_num
-                    current_num += 1
-                elif bfs_btn.collidepoint(event.pos) and current_num > 8:
-                    for i in range(N):
-                        for j in range(N):
-                            if board[i][j] is None:
-                                board[i][j] = 0
-                    chosen_algo = "BFS"
-                elif dfs_btn.collidepoint(event.pos) and current_num > 8:
-                    for i in range(N):
-                        for j in range(N):
-                            if board[i][j] is None:
-                                board[i][j] = 0
-                    chosen_algo = "DFS"
+                linha, coluna = y // TAMANHO_PECA, x // TAMANHO_PECA
+                if linha < TAMANHO and coluna < TAMANHO and numero_atual <= 8 and tabuleiro[linha][coluna] is None:
+                    tabuleiro[linha][coluna] = numero_atual
+                    numero_atual += 1
+                elif btn_bfs.collidepoint(evento.pos) and numero_atual > 8:
+                    for i in range(TAMANHO):
+                        for j in range(TAMANHO):
+                            if tabuleiro[i][j] is None:
+                                tabuleiro[i][j] = 0
+                    algoritmo_escolhido = "BFS"
+                elif btn_dfs.collidepoint(evento.pos) and numero_atual > 8:
+                    for i in range(TAMANHO):
+                        for j in range(TAMANHO):
+                            if tabuleiro[i][j] is None:
+                                tabuleiro[i][j] = 0
+                    algoritmo_escolhido = "DFS"
 
-        if chosen_algo:
-            return board, chosen_algo
+        if algoritmo_escolhido:
+            return tabuleiro, algoritmo_escolhido
 
-        buttons = [("Resolver BFS", bfs_btn), ("Resolver DFS", dfs_btn)] if current_num > 8 else None
-        draw_board(screen, [[c if c is not None else 0 for c in r] for r in board], font, buttons=buttons)
+        botoes = [("Resolver BFS", btn_bfs), ("Resolver DFS", btn_dfs)] if numero_atual > 8 else None
+        desenhar_tabuleiro(tela, [[c if c is not None else 0 for c in r] for r in tabuleiro], fonte, botoes=botoes)
 
-# --- BFS ---
-def solve_puzzle_bfs(start):
-    x, y = find_zero(start)
-    q = deque()
-    visited = set()
-    parent = {}
 
-    q.append(PuzzleState([r[:] for r in start], x, y, 0))
-    visited.add(tuple(map(tuple, start)))
-    parent[tuple(map(tuple, start))] = None
+def resolver_puzzle_bfs(inicio_tabuleiro):
+    linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
+    fila = deque()
+    visitados = set()
+    pai = {}
 
-    generated = 1
-    expanded = 0
-    start_time = time.time()
+    fila.append(EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, 0))
+    visitados.add(tuple(map(tuple, inicio_tabuleiro)))
+    pai[tuple(map(tuple, inicio_tabuleiro))] = None
 
-    while q:
-        curr = q.popleft()
-        expanded += 1
+    gerados = 1
+    expandidos = 0
+    tempo_inicio = time.time()
 
-        if is_goal_state(curr.board):
-            path = []
-            state_tuple = tuple(map(tuple, curr.board))
-            while state_tuple is not None:
-                path.append([list(r) for r in state_tuple])
-                state_tuple = parent[state_tuple]
-            elapsed = time.time() - start_time
-            return path[::-1], {"generated": generated, "expanded": expanded, "depth": curr.depth, "time": elapsed}
+    while fila:
+        atual = fila.popleft()
+        expandidos += 1
 
-        for dx, dy in moves:
-            nx, ny = curr.x + dx, curr.y + dy
-            if is_valid(nx, ny):
-                new_board = [r[:] for r in curr.board]
-                new_board[curr.x][curr.y], new_board[nx][ny] = new_board[nx][ny], new_board[curr.x][curr.y]
-                t = tuple(map(tuple, new_board))
-                if t not in visited:
-                    visited.add(t)
-                    parent[t] = tuple(map(tuple, curr.board))
-                    q.append(PuzzleState(new_board, nx, ny, curr.depth + 1))
-                    generated += 1
-    return [], {"generated": generated, "expanded": expanded, "depth": 0, "time": time.time() - start_time}
+        if eh_estado_objetivo(atual.tabuleiro):
+            caminho = []
+            tupla_estado = tuple(map(tuple, atual.tabuleiro))
+            while tupla_estado is not None:
+                caminho.append([list(r) for r in tupla_estado])
+                tupla_estado = pai[tupla_estado]
+            tempo_passado = time.time() - tempo_inicio
+            return caminho[::-1], {"generated": gerados, "expanded": expandidos, "depth": atual.profundidade, "time": tempo_passado}
 
-# --- DFS ---
-def solve_puzzle_dfs(start):
-    # Iterative Deepening DFS (IDDFS)
-    # This avoids deep, blind exploration by increasing depth limit gradually.
-    max_limit = 50  # safe upper bound for 8-puzzle; adjust if needed
-    total_generated = 0
-    total_expanded = 0
-    start_time = time.time()
+        for dx, dy in MOVIMENTOS:
+            nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
+            if eh_valido(nlinha, ncoluna):
+                novo_tabuleiro = [r[:] for r in atual.tabuleiro]
+                novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
+                t = tuple(map(tuple, novo_tabuleiro))
+                if t not in visitados:
+                    visitados.add(t)
+                    pai[t] = tuple(map(tuple, atual.tabuleiro))
+                    fila.append(EstadoPuzzle(novo_tabuleiro, nlinha, ncoluna, atual.profundidade + 1))
+                    gerados += 1
+    return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": time.time() - tempo_inicio}
 
-    start_tuple = tuple(map(tuple, start))
 
-    def depth_limited(limit):
-        # depth-limited DFS using explicit stack
-        x, y = find_zero(start)
-        stack = [PuzzleState([r[:] for r in start], x, y, 0)]
-        visited = set([start_tuple])
-        parent = {start_tuple: None}
+def resolver_puzzle_dfs(inicio_tabuleiro):
+    limite_maximo = 50
+    total_gerados = 0
+    total_expandidos = 0
+    tempo_inicio = time.time()
 
-        generated = 1
-        expanded = 0
+    tupla_inicio = tuple(map(tuple, inicio_tabuleiro))
 
-        while stack:
-            curr = stack.pop()
-            expanded += 1
+    def dfs_limitado(limite):
+        linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
+        pilha = [EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, 0)]
+        visitados = set([tupla_inicio])
+        pai = {tupla_inicio: None}
 
-            if is_goal_state(curr.board):
-                # build path
-                path = []
-                state_tuple = tuple(map(tuple, curr.board))
-                while state_tuple is not None:
-                    path.append([list(r) for r in state_tuple])
-                    state_tuple = parent[state_tuple]
-                return path[::-1], {"generated": generated, "expanded": expanded, "depth": curr.depth}
+        gerados = 1
+        expandidos = 0
 
-            # only expand if we haven't reached the depth limit
-            if curr.depth < limit:
-                for dx, dy in moves:
-                    nx, ny = curr.x + dx, curr.y + dy
-                    if is_valid(nx, ny):
-                        new_board = [r[:] for r in curr.board]
-                        new_board[curr.x][curr.y], new_board[nx][ny] = new_board[nx][ny], new_board[curr.x][curr.y]
-                        t = tuple(map(tuple, new_board))
-                        if t not in visited:
-                            visited.add(t)
-                            parent[t] = tuple(map(tuple, curr.board))
-                            stack.append(PuzzleState(new_board, nx, ny, curr.depth + 1))
-                            generated += 1
+        while pilha:
+            atual = pilha.pop()
+            expandidos += 1
 
-        return None, {"generated": generated, "expanded": expanded, "depth": None}
+            if eh_estado_objetivo(atual.tabuleiro):
+                caminho = []
+                tupla_estado = tuple(map(tuple, atual.tabuleiro))
+                while tupla_estado is not None:
+                    caminho.append([list(r) for r in tupla_estado])
+                    tupla_estado = pai[tupla_estado]
+                return caminho[::-1], {"generated": gerados, "expanded": expandidos, "depth": atual.profundidade}
 
-    for limit in range(0, max_limit + 1):
-        result, stats = depth_limited(limit)
-        total_generated += stats["generated"]
-        total_expanded += stats["expanded"]
-        if result:
-            elapsed = time.time() - start_time
-            # return metrics similar to BFS: generated (sum), expanded (sum), depth and time
-            return result, {"generated": total_generated, "expanded": total_expanded, "depth": len(result) - 1, "time": elapsed}
+            if atual.profundidade < limite:
+                for dx, dy in MOVIMENTOS:
+                    nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
+                    if eh_valido(nlinha, ncoluna):
+                        novo_tabuleiro = [r[:] for r in atual.tabuleiro]
+                        novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
+                        t = tuple(map(tuple, novo_tabuleiro))
+                        if t not in visitados:
+                            visitados.add(t)
+                            pai[t] = tuple(map(tuple, atual.tabuleiro))
+                            pilha.append(EstadoPuzzle(novo_tabuleiro, nlinha, ncoluna, atual.profundidade + 1))
+                            gerados += 1
 
-    elapsed = time.time() - start_time
-    return [], {"generated": total_generated, "expanded": total_expanded, "depth": 0, "time": elapsed}
+        return None, {"generated": gerados, "expanded": expandidos, "depth": None}
 
-# --- Animação ---
-def animate_solution(states, metrics):
+    for limite in range(0, limite_maximo + 1):
+        resultado, estatisticas = dfs_limitado(limite)
+        total_gerados += estatisticas["generated"]
+        total_expandidos += estatisticas["expanded"]
+        if resultado:
+            tempo_passado = time.time() - tempo_inicio
+            return resultado, {"generated": total_gerados, "expanded": total_expandidos, "depth": len(resultado) - 1, "time": tempo_passado}
+
+    tempo_passado = time.time() - tempo_inicio
+    return [], {"generated": total_gerados, "expanded": total_expandidos, "depth": 0, "time": tempo_passado}
+
+
+def animar_solucao(estados, metricas):
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    tela = pygame.display.set_mode((LARGURA, ALTURA))
     pygame.display.set_caption("8 Puzzle Solver")
-    font_size = max(24, int(TILE_SIZE * 0.44))
-    font = pygame.font.SysFont("Arial", font_size, bold=True)
-    clock = pygame.time.Clock()
+    tamanho_fonte = max(24, int(TAMANHO_PECA * 0.44))
+    fonte = pygame.font.SysFont("Arial", tamanho_fonte, bold=True)
+    relogio = pygame.time.Clock()
 
-    for board in states:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+    for tabuleiro in estados:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-        draw_board(screen, board, font)
-        clock.tick(FPS)
+        desenhar_tabuleiro(tela, tabuleiro, fonte)
+        relogio.tick(FPS)
 
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-        draw_board(screen, states[-1], font, metrics)
+        desenhar_tabuleiro(tela, estados[-1], fonte, metricas)
+
 
 if __name__ == "__main__":
-    start, algo = input_start_board()
-    if algo == "BFS":
-        path, metrics = solve_puzzle_bfs(start)
+    inicio, algoritmo = entrada_tabuleiro_inicial()
+    if algoritmo == "BFS":
+        caminho, metricas = resolver_puzzle_bfs(inicio)
     else:
-        path, metrics = solve_puzzle_dfs(start)
+        caminho, metricas = resolver_puzzle_dfs(inicio)
 
-    if path:
-        animate_solution(path, metrics)
+    if caminho:
+        animar_solucao(caminho, metricas)
     else:
         print("Nenhuma solução encontrada.")
