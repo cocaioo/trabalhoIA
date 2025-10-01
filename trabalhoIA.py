@@ -4,9 +4,11 @@ import time
 from collections import deque
 
 N = 3
-TILE_SIZE = 100
+TILE_SIZE = 180  # aumente este valor para escalar toda a interface
+# Espaço reservado embaixo para métricas e botões — proporcional ao TILE_SIZE
+METRICS_SPACE = int(TILE_SIZE * 1.4)
 WIDTH = N * TILE_SIZE
-HEIGHT = N * TILE_SIZE + 140  # espaço para métricas e botões
+HEIGHT = N * TILE_SIZE + METRICS_SPACE  # espaço para métricas e botões
 FPS = 2
 
 class PuzzleState:
@@ -45,25 +47,29 @@ def draw_board(screen, board, font, metrics=None, buttons=None):
                 text = font.render(str(value), True, (255, 255, 255))
                 text_rect = text.get_rect(center=rect.center)
                 screen.blit(text, text_rect)
-            pygame.draw.rect(screen, (20, 20, 20), rect, 3)
+            border_w = max(2, TILE_SIZE // 33)
+            pygame.draw.rect(screen, (20, 20, 20), rect, border_w)
 
     if metrics:
-        small_font = pygame.font.SysFont("Arial", 24, bold=True)
+        small_font_size = max(14, int(TILE_SIZE * 0.24))
+        small_font = pygame.font.SysFont("Arial", small_font_size, bold=True)
         lines = [
-            f"Nós gerados: {metrics['generated']}",
-            f"Nós verificados: {metrics['expanded']}",
+            f"N\u00f3s gerados: {metrics['generated']}",
+            f"N\u00f3s verificados: {metrics['expanded']}",
             f"Profundidade: {metrics['depth']}",
             f"Tempo: {metrics['time']:.2f}s"
         ]
         for idx, line in enumerate(lines):
             text = small_font.render(line, True, (255, 255, 255))
-            screen.blit(text, (10, HEIGHT - 140 + idx * 25))
+            text_y = HEIGHT - METRICS_SPACE + 10 + idx * int(TILE_SIZE * 0.25)
+            screen.blit(text, (10, text_y))
 
     if buttons:
+        btn_font_size = max(16, int(TILE_SIZE * 0.22))
+        btn_font = pygame.font.SysFont("Arial", btn_font_size, bold=True)
         for text, rect in buttons:
             pygame.draw.rect(screen, (100, 100, 100), rect)
-            pygame.draw.rect(screen, (255, 255, 255), rect, 2)
-            btn_font = pygame.font.SysFont("Arial", 22, bold=True)
+            pygame.draw.rect(screen, (255, 255, 255), rect, max(2, TILE_SIZE // 50))
             label = btn_font.render(text, True, (255, 255, 255))
             label_rect = label.get_rect(center=rect.center)
             screen.blit(label, label_rect)
@@ -74,14 +80,18 @@ def input_start_board():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Defina o estado inicial")
-    font = pygame.font.SysFont("Arial", 40, bold=True)
+    font_size = max(24, int(TILE_SIZE * 0.44))
+    font = pygame.font.SysFont("Arial", font_size, bold=True)
 
     board = [[None for _ in range(N)] for _ in range(N)]
     current_num = 1
     chosen_algo = None
 
-    bfs_btn = pygame.Rect(30, HEIGHT - 60, 140, 40)
-    dfs_btn = pygame.Rect(200, HEIGHT - 60, 140, 40)
+    btn_w = int(TILE_SIZE * 1.4)
+    btn_h = int(TILE_SIZE * 0.35)
+    left_x = 30
+    bfs_btn = pygame.Rect(left_x, HEIGHT - btn_h - 20, btn_w, btn_h)
+    dfs_btn = pygame.Rect(left_x + btn_w + 30, HEIGHT - btn_h - 20, btn_w, btn_h)
 
     while True:
         for event in pygame.event.get():
@@ -150,53 +160,88 @@ def solve_puzzle_bfs(start):
                 if t not in visited:
                     visited.add(t)
                     parent[t] = tuple(map(tuple, curr.board))
-                    q.append(PuzzleState(new_board, nx, ny, curr.depth + 1))
                     generated += 1
+                    # If the neighbor is the goal, return immediately (we've generated it)
+                    if is_goal_state(new_board):
+                        path = []
+                        state_tuple = t
+                        while state_tuple is not None:
+                            path.append([list(r) for r in state_tuple])
+                            state_tuple = parent[state_tuple]
+                        elapsed = time.time() - start_time
+                        return path[::-1], {"generated": generated, "expanded": expanded, "depth": curr.depth + 1, "time": elapsed}
+                    q.append(PuzzleState(new_board, nx, ny, curr.depth + 1))
     return [], {"generated": generated, "expanded": expanded, "depth": 0, "time": time.time() - start_time}
 
 # --- DFS ---
 def solve_puzzle_dfs(start):
-    x, y = find_zero(start)
-    stack = [PuzzleState([r[:] for r in start], x, y, 0)]
-    visited = set([tuple(map(tuple, start))])
-    parent = {tuple(map(tuple, start)): None}
-
-    generated = 1
-    expanded = 0
+    # Iterative Deepening DFS (IDDFS)
+    # This avoids deep, blind exploration by increasing depth limit gradually.
+    max_limit = 50  # safe upper bound for 8-puzzle; adjust if needed
+    total_generated = 0
+    total_expanded = 0
     start_time = time.time()
 
-    while stack:
-        curr = stack.pop()
-        expanded += 1
+    start_tuple = tuple(map(tuple, start))
 
-        if is_goal_state(curr.board):
-            path = []
-            state_tuple = tuple(map(tuple, curr.board))
-            while state_tuple is not None:
-                path.append([list(r) for r in state_tuple])
-                state_tuple = parent[state_tuple]
+    def depth_limited(limit):
+        # depth-limited DFS using explicit stack
+        x, y = find_zero(start)
+        stack = [PuzzleState([r[:] for r in start], x, y, 0)]
+        visited = set([start_tuple])
+        parent = {start_tuple: None}
+
+        generated = 1
+        expanded = 0
+
+        while stack:
+            curr = stack.pop()
+            expanded += 1
+
+            if is_goal_state(curr.board):
+                # build path
+                path = []
+                state_tuple = tuple(map(tuple, curr.board))
+                while state_tuple is not None:
+                    path.append([list(r) for r in state_tuple])
+                    state_tuple = parent[state_tuple]
+                return path[::-1], {"generated": generated, "expanded": expanded, "depth": curr.depth}
+
+            # only expand if we haven't reached the depth limit
+            if curr.depth < limit:
+                for dx, dy in moves:
+                    nx, ny = curr.x + dx, curr.y + dy
+                    if is_valid(nx, ny):
+                        new_board = [r[:] for r in curr.board]
+                        new_board[curr.x][curr.y], new_board[nx][ny] = new_board[nx][ny], new_board[curr.x][curr.y]
+                        t = tuple(map(tuple, new_board))
+                        if t not in visited:
+                            visited.add(t)
+                            parent[t] = tuple(map(tuple, curr.board))
+                            stack.append(PuzzleState(new_board, nx, ny, curr.depth + 1))
+                            generated += 1
+
+        return None, {"generated": generated, "expanded": expanded, "depth": None}
+
+    for limit in range(0, max_limit + 1):
+        result, stats = depth_limited(limit)
+        total_generated += stats["generated"]
+        total_expanded += stats["expanded"]
+        if result:
             elapsed = time.time() - start_time
-            return path[::-1], {"generated": generated, "expanded": expanded, "depth": curr.depth, "time": elapsed}
+            # return metrics similar to BFS: generated (sum), expanded (sum), depth and time
+            return result, {"generated": total_generated, "expanded": total_expanded, "depth": len(result) - 1, "time": elapsed}
 
-        for dx, dy in moves:
-            nx, ny = curr.x + dx, curr.y + dy
-            if is_valid(nx, ny):
-                new_board = [r[:] for r in curr.board]
-                new_board[curr.x][curr.y], new_board[nx][ny] = new_board[nx][ny], new_board[curr.x][curr.y]
-                t = tuple(map(tuple, new_board))
-                if t not in visited:
-                    visited.add(t)
-                    parent[t] = tuple(map(tuple, curr.board))
-                    stack.append(PuzzleState(new_board, nx, ny, curr.depth + 1))
-                    generated += 1
-    return [], {"generated": generated, "expanded": expanded, "depth": 0, "time": time.time() - start_time}
+    elapsed = time.time() - start_time
+    return [], {"generated": total_generated, "expanded": total_expanded, "depth": 0, "time": elapsed}
 
 # --- Animação ---
 def animate_solution(states, metrics):
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("8 Puzzle Solver")
-    font = pygame.font.SysFont("Arial", 40, bold=True)
+    font_size = max(24, int(TILE_SIZE * 0.44))
+    font = pygame.font.SysFont("Arial", font_size, bold=True)
     clock = pygame.time.Clock()
 
     for board in states:
