@@ -160,17 +160,8 @@ def solve_puzzle_bfs(start):
                 if t not in visited:
                     visited.add(t)
                     parent[t] = tuple(map(tuple, curr.board))
-                    generated += 1
-                    # If the neighbor is the goal, return immediately (we've generated it)
-                    if is_goal_state(new_board):
-                        path = []
-                        state_tuple = t
-                        while state_tuple is not None:
-                            path.append([list(r) for r in state_tuple])
-                            state_tuple = parent[state_tuple]
-                        elapsed = time.time() - start_time
-                        return path[::-1], {"generated": generated, "expanded": expanded, "depth": curr.depth + 1, "time": elapsed}
                     q.append(PuzzleState(new_board, nx, ny, curr.depth + 1))
+                    generated += 1
     return [], {"generated": generated, "expanded": expanded, "depth": 0, "time": time.time() - start_time}
 
 # --- DFS ---
