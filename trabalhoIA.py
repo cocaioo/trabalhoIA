@@ -2,14 +2,30 @@ import pygame
 import sys
 import time
 from collections import deque
+import heapq
+import itertools
 
+contador_guloso = itertools.count()
+
+LARGURA_JANELA = 800
+ALTURA_JANELA = 700
 TAMANHO = 3
-TAMANHO_PECA = 180
+#TAMANHO_PECA = 180
+TAMANHO_PECA = 90
 ESPACO_METRICAS = int(TAMANHO_PECA * 1.4)
 LARGURA = TAMANHO * TAMANHO_PECA
 ALTURA = TAMANHO * TAMANHO_PECA + ESPACO_METRICAS
 FPS = 2
 
+OFFSET_X = (LARGURA_JANELA - LARGURA) // 2
+OFFSET_Y = ((ALTURA_JANELA - ALTURA) // 2)
+
+ESTADO_OBJETIVO = [[1, 2, 3], [4, 5, 6], [7, 8, 0]]
+
+POSICOES_ALVO = {}
+for l in range(3):
+    for c in range(3):
+        POSICOES_ALVO[ESTADO_OBJETIVO[l][c]] = (l, c)
 
 class EstadoPuzzle:
     def __init__(self, tabuleiro, linha_zero, coluna_zero, profundidade):
@@ -23,7 +39,7 @@ MOVIMENTOS = [(0, -1), (0, 1), (-1, 0), (1, 0)]
 
 
 def eh_estado_objetivo(tabuleiro):
-    return tabuleiro == [[1, 2, 3], [4, 5, 6], [7, 8, 0]]
+    return tabuleiro == ESTADO_OBJETIVO
 
 
 def eh_valido(x, y):
@@ -43,7 +59,8 @@ def desenhar_tabuleiro(tela, tabuleiro, fonte, metricas=None, botoes=None):
     for i in range(TAMANHO):
         for j in range(TAMANHO):
             valor = tabuleiro[i][j]
-            rect = pygame.Rect(j * TAMANHO_PECA, i * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA)
+            #rect = pygame.Rect(j * TAMANHO_PECA, i * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA)
+            rect = pygame.Rect(OFFSET_X + j * TAMANHO_PECA, OFFSET_Y + i * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA)
             if valor == 0:
                 pygame.draw.rect(tela, (50, 50, 50), rect)
             else:
@@ -83,7 +100,7 @@ def desenhar_tabuleiro(tela, tabuleiro, fonte, metricas=None, botoes=None):
 
 def entrada_tabuleiro_inicial():
     pygame.init()
-    tela = pygame.display.set_mode((LARGURA, ALTURA))
+    tela = pygame.display.set_mode((LARGURA_JANELA, ALTURA_JANELA))
     pygame.display.set_caption("Defina o estado inicial")
     tamanho_fonte = max(24, int(TAMANHO_PECA * 0.44))
     fonte = pygame.font.SysFont("Arial", tamanho_fonte, bold=True)
@@ -92,11 +109,15 @@ def entrada_tabuleiro_inicial():
     numero_atual = 1
     algoritmo_escolhido = None
 
-    largura_btn = int(TAMANHO_PECA * 1.4)
+    largura_btn = int(TAMANHO_PECA * 1.8)
     altura_btn = int(TAMANHO_PECA * 0.35)
-    esquerda_x = 30
-    btn_bfs = pygame.Rect(esquerda_x, ALTURA - altura_btn - 20, largura_btn, altura_btn)
-    btn_dfs = pygame.Rect(esquerda_x + largura_btn + 30, ALTURA - altura_btn - 20, largura_btn, altura_btn)
+    espaco_entre_btns = 30
+    total_largura_btns = 3 * largura_btn + 2 * espaco_entre_btns
+    esquerda_x = (LARGURA_JANELA - total_largura_btns) // 2
+
+    btn_bfs = pygame.Rect(esquerda_x, ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
+    btn_dfs = pygame.Rect(esquerda_x + largura_btn + espaco_entre_btns, ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
+    btn_guloso = pygame.Rect(esquerda_x + 2 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
 
     while True:
         for evento in pygame.event.get():
@@ -105,7 +126,9 @@ def entrada_tabuleiro_inicial():
                 sys.exit()
             elif evento.type == pygame.MOUSEBUTTONDOWN:
                 x, y = pygame.mouse.get_pos()
-                linha, coluna = y // TAMANHO_PECA, x // TAMANHO_PECA
+                tab_x = x - OFFSET_X
+                tab_y = y - OFFSET_Y
+                linha, coluna = tab_y // TAMANHO_PECA, tab_x // TAMANHO_PECA
                 if linha < TAMANHO and coluna < TAMANHO and numero_atual <= 8 and tabuleiro[linha][coluna] is None:
                     tabuleiro[linha][coluna] = numero_atual
                     numero_atual += 1
@@ -121,11 +144,17 @@ def entrada_tabuleiro_inicial():
                             if tabuleiro[i][j] is None:
                                 tabuleiro[i][j] = 0
                     algoritmo_escolhido = "DFS"
+                elif btn_guloso.collidepoint(evento.pos) and numero_atual > 8:
+                    for i in range(TAMANHO):
+                        for j in range(TAMANHO):
+                            if tabuleiro[i][j] is None:
+                                tabuleiro[i][j] = 0
+                    algoritmo_escolhido = "GULOSO"
 
         if algoritmo_escolhido:
             return tabuleiro, algoritmo_escolhido
 
-        botoes = [("Resolver BFS", btn_bfs), ("Resolver DFS", btn_dfs)] if numero_atual > 8 else None
+        botoes = [("Resolver BFS", btn_bfs), ("Resolver DFS", btn_dfs), ("Resolver Guloso", btn_guloso)] if numero_atual > 8 else None
         desenhar_tabuleiro(tela, [[c if c is not None else 0 for c in r] for r in tabuleiro], fonte, botoes=botoes)
 
 
@@ -225,11 +254,101 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
     tempo_passado = time.time() - tempo_inicio
     return [], {"generated": total_gerados, "expanded": total_expandidos, "depth": 0, "time": tempo_passado}
 
+def calcula_heuristica(tabuleiro):
+    #Distância Manhattan: é a soma das distancias verticais e horizontais de cada peça até a sua posição correta
+    soma_total_dist = 0
+    for linha in range(TAMANHO):
+        for coluna in range(TAMANHO):
+            peca = tabuleiro[linha][coluna]
+            if peca != 0: #zero nao conta:
+                linha_correta, coluna_correta = POSICOES_ALVO[peca]
+                #calculo da distancia (cumulativo) = modulo dist linha + modulo dist coluna
+                soma_total_dist += abs(linha - linha_correta) + abs(coluna - coluna_correta)
+    return soma_total_dist
+
+
+
+def resolver_puzzle_guloso(inicio_tabuleiro):
+    linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
+    soma_inicial = calcula_heuristica(inicio_tabuleiro)
+
+    estado_inicial = EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, profundidade=0)
+
+    # fila de prioridade
+    fila_prioridade = [(soma_inicial, estado_inicial.profundidade, next(contador_guloso), estado_inicial)]
+
+    tupla_inicial = tuple(map(tuple, inicio_tabuleiro))
+    visitados = {tupla_inicial}
+
+    pai = {tupla_inicial: None}
+
+    gerados = 1
+    expandidos = 0
+    tempo_inicio = time.time()
+
+    while fila_prioridade:
+        # estado de menor valor de heurística
+        _, _, _, atual = heapq.heappop(fila_prioridade)
+        expandidos += 1
+
+        tupla_atual = tuple(map(tuple, atual.tabuleiro))
+
+        if eh_estado_objetivo(atual.tabuleiro):
+            caminho = []
+            tupla_estado = tupla_atual
+            while tupla_estado is not None:
+                caminho.append([list(r) for r in tupla_estado])
+                tupla_estado = pai.get(tupla_estado)
+            
+            tempo_passado = time.time() - tempo_inicio
+
+            return caminho[::-1], {
+                "generated": gerados, 
+                "expanded": expandidos, 
+                "depth": atual.profundidade, 
+                "time": tempo_passado}
+        
+        # gera e avalia os sucessores
+        for dx, dy in MOVIMENTOS:
+            nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy 
+
+            if eh_valido(nlinha, ncoluna):
+                novo_tabuleiro = [r[:] for r in atual.tabuleiro]
+                novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = \
+                    novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
+                
+                t = tuple(map(tuple, novo_tabuleiro))
+                
+                if t not in visitados:
+                    # cálculo guloso: a heurística é o fator decisivo
+                    soma_nova = calcula_heuristica(novo_tabuleiro)
+                    
+                    novo_estado = EstadoPuzzle(
+                        tabuleiro=novo_tabuleiro, 
+                        linha_zero=nlinha, 
+                        coluna_zero=ncoluna, 
+                        profundidade=atual.profundidade + 1
+                    )
+                    
+                    # insere na fila de prioridade, com um contador para evitar comparações diretas de estados com mesmo valor de soma
+                    heapq.heappush(fila_prioridade, (soma_nova, novo_estado.profundidade, next(contador_guloso), novo_estado))
+                    
+                    # Atualiza os conjuntos de controle
+                    visitados.add(t)
+                    pai[t] = tupla_atual
+                    gerados += 1
+
+    # Se a fila esvaziar e o objetivo não for encontrado
+    tempo_passado = time.time() - tempo_inicio
+    return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": tempo_passado}
+
+def resolver_puzzle_a_estrela(inicio_tabuleiro):
+    pass
 
 def animar_solucao(estados, metricas):
     pygame.init()
-    tela = pygame.display.set_mode((LARGURA, ALTURA))
-    pygame.display.set_caption("8 Puzzle Solver")
+    tela = pygame.display.set_mode((LARGURA_JANELA, ALTURA_JANELA))
+    pygame.display.set_caption("Jogo dos 8")
     tamanho_fonte = max(24, int(TAMANHO_PECA * 0.44))
     fonte = pygame.font.SysFont("Arial", tamanho_fonte, bold=True)
     relogio = pygame.time.Clock()
@@ -254,8 +373,10 @@ if __name__ == "__main__":
     inicio, algoritmo = entrada_tabuleiro_inicial()
     if algoritmo == "BFS":
         caminho, metricas = resolver_puzzle_bfs(inicio)
-    else:
+    elif algoritmo == "DFS":
         caminho, metricas = resolver_puzzle_dfs(inicio)
+    else:
+        caminho, metricas = resolver_puzzle_guloso(inicio)
 
     if caminho:
         animar_solucao(caminho, metricas)
