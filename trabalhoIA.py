@@ -3,13 +3,14 @@ import sys
 import time
 from collections import deque
 
-TAMANHO = 3
-TAMANHO_PECA = 180
+#variaveis para interface do tabuleiro
+TAMANHO = 3 #tabuleiro 3x3
+TAMANHO_PECA = 180 #tamanho da peça no tabuleiro
 ESPACO_METRICAS = int(TAMANHO_PECA * 1.4)
 LARGURA = TAMANHO * TAMANHO_PECA
 ALTURA = TAMANHO * TAMANHO_PECA + ESPACO_METRICAS
 FPS = 2
-
+#variaveis para interface do tabuleiro
 
 class EstadoPuzzle:
     def __init__(self, tabuleiro, linha_zero, coluna_zero, profundidade):
