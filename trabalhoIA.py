@@ -125,14 +125,14 @@ def entrada_tabuleiro_inicial():
     algoritmo_escolhido = None
 
     largura_btn = int(TAMANHO_PECA * 1.8)
-    altura_btn = int(TAMANHO_PECA * 0.35)
+    altura_btn = int(TAMANHO_PECA * 0.5)
     espaco_entre_btns = 30
     total_largura_btns = 3 * largura_btn + 2 * espaco_entre_btns
     esquerda_x = (LARGURA_JANELA - total_largura_btns) // 2
 
-    btn_bfs = pygame.Rect(esquerda_x, ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
-    btn_dfs = pygame.Rect(esquerda_x + largura_btn + espaco_entre_btns, ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
-    btn_guloso = pygame.Rect(esquerda_x + 2 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
+    btn_bfs = pygame.Rect(esquerda_x, ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
+    btn_dfs = pygame.Rect(esquerda_x + largura_btn + espaco_entre_btns, ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
+    btn_guloso = pygame.Rect(esquerda_x + 2 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
 
     while True:
         for evento in pygame.event.get():
