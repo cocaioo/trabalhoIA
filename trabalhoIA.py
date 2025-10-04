@@ -53,6 +53,21 @@ def encontra_zero(tabuleiro):
                 return i, j
     raise ValueError("O tabuleiro deve conter um 0")
 
+def calcular_INVERSOES(tabuleiro):
+    inversoes = 0
+    lista = [num for linha in tabuleiro for num in linha if num != 0]
+
+    for i in range(len(lista)):
+        for j in range(i+1, len(lista)):
+            if lista[i] > lista[j]:
+                inversoes += 1
+
+    return inversoes
+
+def tem_solucao(tabuleiro):
+    inversoes = calcular_INVERSOES(tabuleiro)
+
+    return (inversoes % 2) == 0 #para o tabuleiro 3x3 o numero de inversoes precisa ser par
 
 def desenhar_tabuleiro(tela, tabuleiro, fonte, metricas=None, botoes=None):
     tela.fill((30, 30, 30))
@@ -371,6 +386,12 @@ def animar_solucao(estados, metricas):
 
 if __name__ == "__main__":
     inicio, algoritmo = entrada_tabuleiro_inicial()
+
+    if not tem_solucao(inicio):
+        print("\n🚫 Esse estado inicial não possui soluçao, pois possui uma quantidade impar de inversoes.")
+        pygame.quit()
+        sys.exit()
+
     if algoritmo == "BFS":
         caminho, metricas = resolver_puzzle_bfs(inicio)
     elif algoritmo == "DFS":
@@ -381,4 +402,4 @@ if __name__ == "__main__":
     if caminho:
         animar_solucao(caminho, metricas)
     else:
-        print("Nenhuma solução encontrada.")
+        print("Nenhuma solução encontrada devido ao limite de profundidade.")
