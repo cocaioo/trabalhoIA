@@ -132,6 +132,8 @@ def entrada_tabuleiro_inicial():
     btn_dfs = pygame.Rect(esquerda_x + largura_btn + espaco_entre_btns, ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
     btn_guloso = pygame.Rect(esquerda_x + 2 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
     btn_a_estrela = pygame.Rect(esquerda_x + 3 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
+    
+    #btn_aestrela = pygame.Rect(esquerda_x + 3 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
 
     while True:
         for evento in pygame.event.get():
@@ -165,6 +167,7 @@ def entrada_tabuleiro_inicial():
                                 tabuleiro[i][j] = 0
                     algoritmo_escolhido = "GULOSO"
                 elif btn_a_estrela.collidepoint(evento.pos) and numero_atual > 8:
+                #elif btn_aestrela.collidepoint(evento.pos) and numero_atual > 8:
                     for i in range(TAMANHO):
                         for j in range(TAMANHO):
                             if tabuleiro[i][j] is None:
@@ -175,6 +178,8 @@ def entrada_tabuleiro_inicial():
             return tabuleiro, algoritmo_escolhido
 
         botoes = [("BFS", btn_bfs), ("DFS", btn_dfs), ("Guloso", btn_guloso), ("A*", btn_a_estrela)] if numero_atual > 8 else None
+        #botoes = [("Resolver BFS", btn_bfs), ("Resolver DFS", btn_dfs), ("Resolver Guloso", btn_guloso), ("Resolver A*", btn_aestrela)] if numero_atual > 8 else None
+        
         desenhar_tabuleiro(tela, [[c if c is not None else 0 for c in r] for r in tabuleiro], fonte, botoes=botoes)
 
 
@@ -308,7 +313,6 @@ def calcula_heuristica(tabuleiro):
     return soma_total_dist
 
 
-
 def resolver_puzzle_guloso(inicio_tabuleiro):
     linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
     soma_inicial = calcula_heuristica(inicio_tabuleiro)
@@ -363,8 +367,7 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
 
             if eh_valido(nlinha, ncoluna):
                 novo_tabuleiro = [r[:] for r in atual.tabuleiro]
-                novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = \
-                    novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
+                novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
                 
                 t = tuple(map(tuple, novo_tabuleiro))
                 
