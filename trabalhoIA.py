@@ -10,7 +10,6 @@ contador_guloso = itertools.count()
 LARGURA_JANELA = 800
 ALTURA_JANELA = 700
 TAMANHO = 3
-#TAMANHO_PECA = 180
 TAMANHO_PECA = 90
 ESPACO_METRICAS = int(TAMANHO_PECA * 1.4)
 LARGURA = TAMANHO * TAMANHO_PECA
@@ -67,14 +66,13 @@ def calcular_INVERSOES(tabuleiro):
 def tem_solucao(tabuleiro):
     inversoes = calcular_INVERSOES(tabuleiro)
 
-    return (inversoes % 2) == 0 #para o tabuleiro 3x3 o numero de inversoes precisa ser par
+    return (inversoes % 2) == 0
 
 def desenhar_tabuleiro(tela, tabuleiro, fonte, metricas=None, botoes=None):
     tela.fill((30, 30, 30))
     for i in range(TAMANHO):
         for j in range(TAMANHO):
             valor = tabuleiro[i][j]
-            #rect = pygame.Rect(j * TAMANHO_PECA, i * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA)
             rect = pygame.Rect(OFFSET_X + j * TAMANHO_PECA, OFFSET_Y + i * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA)
             if valor == 0:
                 pygame.draw.rect(tela, (50, 50, 50), rect)
@@ -185,7 +183,7 @@ def resolver_puzzle_bfs(inicio_tabuleiro):
     fila = deque()
     visitados = set()
     pai = {}
-    passos = []  # Armazena os passos da execução
+    passos = []
 
     fila.append(EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, 0))
     visitados.add(tuple(map(tuple, inicio_tabuleiro)))
@@ -199,8 +197,7 @@ def resolver_puzzle_bfs(inicio_tabuleiro):
         atual = fila.popleft()
         expandidos += 1
 
-        # Captura o estado atual, a fronteira e os visitados
-        fronteira_estados = [[list(r) for r in e.tabuleiro] for e in list(fila)[:10]]  # Limita a 10 para visualização
+        fronteira_estados = [[list(r) for r in e.tabuleiro] for e in list(fila)[:10]]
         passos.append({
             "atual": [r[:] for r in atual.tabuleiro],
             "fronteira": fronteira_estados,
@@ -237,7 +234,7 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
     total_gerados = 0
     total_expandidos = 0
     tempo_inicio = time.time()
-    todos_passos = []  # Armazena todos os passos de todas as iterações
+    todos_passos = []
 
     tupla_inicio = tuple(map(tuple, inicio_tabuleiro))
 
@@ -255,7 +252,6 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
             atual = pilha.pop()
             expandidos += 1
 
-            # Captura o estado atual e a pilha
             pilha_estados = [[list(r) for r in e.tabuleiro] for e in list(pilha)[:10]]
             passos.append({
                 "atual": [r[:] for r in atual.tabuleiro],
@@ -302,14 +298,12 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
     return [], {"generated": total_gerados, "expanded": total_expandidos, "depth": 0, "time": tempo_passado}, todos_passos
 
 def calcula_heuristica(tabuleiro):
-    #Distância Manhattan: é a soma das distancias verticais e horizontais de cada peça até a sua posição correta
     soma_total_dist = 0
     for linha in range(TAMANHO):
         for coluna in range(TAMANHO):
             peca = tabuleiro[linha][coluna]
-            if peca != 0: #zero nao conta:
+            if peca != 0:
                 linha_correta, coluna_correta = POSICOES_ALVO[peca]
-                #calculo da distancia (cumulativo) = modulo dist linha + modulo dist coluna
                 soma_total_dist += abs(linha - linha_correta) + abs(coluna - coluna_correta)
     return soma_total_dist
 
@@ -321,7 +315,6 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
 
     estado_inicial = EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, profundidade=0)
 
-    # fila de prioridade
     fila_prioridade = [(soma_inicial, estado_inicial.profundidade, next(contador_guloso), estado_inicial)]
 
     tupla_inicial = tuple(map(tuple, inicio_tabuleiro))
@@ -332,16 +325,14 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
     gerados = 1
     expandidos = 0
     tempo_inicio = time.time()
-    passos = []  # Armazena os passos da execução
+    passos = []
 
     while fila_prioridade:
-        # estado de menor valor de heurística
         _, _, _, atual = heapq.heappop(fila_prioridade)
         expandidos += 1
 
         tupla_atual = tuple(map(tuple, atual.tabuleiro))
 
-        # Captura o estado atual e a fila de prioridade
         fronteira_estados = [[list(r) for r in e[3].tabuleiro] for e in list(fila_prioridade)[:10]]
         passos.append({
             "atual": [r[:] for r in atual.tabuleiro],
@@ -367,7 +358,6 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
                 "depth": atual.profundidade, 
                 "time": tempo_passado}, passos
         
-        # gera e avalia os sucessores
         for dx, dy in MOVIMENTOS:
             nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy 
 
@@ -379,7 +369,6 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
                 t = tuple(map(tuple, novo_tabuleiro))
                 
                 if t not in visitados:
-                    # cálculo guloso: a heurística é o fator decisivo
                     soma_nova = calcula_heuristica(novo_tabuleiro)
                     
                     novo_estado = EstadoPuzzle(
@@ -389,15 +378,12 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
                         profundidade=atual.profundidade + 1
                     )
                     
-                    # insere na fila de prioridade, com um contador para evitar comparações diretas de estados com mesmo valor de soma
                     heapq.heappush(fila_prioridade, (soma_nova, novo_estado.profundidade, next(contador_guloso), novo_estado))
                     
-                    # Atualiza os conjuntos de controle
                     visitados.add(t)
                     pai[t] = tupla_atual
                     gerados += 1
 
-    # Se a fila esvaziar e o objetivo não for encontrado
     tempo_passado = time.time() - tempo_inicio
     return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": tempo_passado}, passos
 
@@ -407,8 +393,6 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
     
     estado_inicial = EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, profundidade=0)
     
-    # f(n) = g(n) + h(n), onde g(n) é o custo do caminho e h(n) é a heurística
-    # Fila de prioridade: (f, h, contador, estado)
     fila_prioridade = [(heuristica_inicial, heuristica_inicial, next(contador_guloso), estado_inicial)]
     
     tupla_inicial = tuple(map(tuple, inicio_tabuleiro))
@@ -418,7 +402,7 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
     gerados = 1
     expandidos = 0
     tempo_inicio = time.time()
-    passos = []  # Armazena os passos da execução
+    passos = []
     
     while fila_prioridade:
         f_atual, h_atual, _, atual = heapq.heappop(fila_prioridade)
@@ -426,7 +410,6 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
         
         tupla_atual = tuple(map(tuple, atual.tabuleiro))
         
-        # Captura o estado atual e a fila de prioridade
         fronteira_estados = [[list(r) for r in e[3].tabuleiro] for e in list(fila_prioridade)[:10]]
         passos.append({
             "atual": [r[:] for r in atual.tabuleiro],
@@ -454,7 +437,6 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
                 "time": tempo_passado
             }, passos
         
-        # Gera os sucessores
         for dx, dy in MOVIMENTOS:
             nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
             
@@ -466,9 +448,9 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
                 t = tuple(map(tuple, novo_tabuleiro))
                 
                 if t not in visitados:
-                    g_novo = atual.profundidade + 1  # Custo do caminho
-                    h_novo = calcula_heuristica(novo_tabuleiro)  # Heurística
-                    f_novo = g_novo + h_novo  # Custo total
+                    g_novo = atual.profundidade + 1
+                    h_novo = calcula_heuristica(novo_tabuleiro)
+                    f_novo = g_novo + h_novo
                     
                     novo_estado = EstadoPuzzle(
                         tabuleiro=novo_tabuleiro,
@@ -487,12 +469,7 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
     return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": tempo_passado}, passos
 
 def visualizar_passo_a_passo(passos, algoritmo):
-    """
-    Visualiza interativamente o passo a passo da execução do algoritmo.
-    Mostra o nó atual sendo expandido, a fronteira e estatísticas.
-    """
     pygame.init()
-    # Janela maior para acomodar visualizações múltiplas
     largura_viz = 1200
     altura_viz = 700
     tela = pygame.display.set_mode((largura_viz, altura_viz))
@@ -506,14 +483,12 @@ def visualizar_passo_a_passo(passos, algoritmo):
     relogio = pygame.time.Clock()
     passo_atual = 0
     pausado = True
-    velocidade = 1  # FPS quando não pausado
+    velocidade = 1
     
-    # Dimensões dos tabuleiros menores
     tam_peca_pequeno = 50
     margem_esquerda = 50
     margem_topo = 80
     
-    # Botões de controle
     btn_largura = 100
     btn_altura = 35
     btn_y = altura_viz - 60
@@ -524,7 +499,6 @@ def visualizar_passo_a_passo(passos, algoritmo):
     btn_pular = pygame.Rect(margem_esquerda + 4 * (btn_largura + 20), btn_y, btn_largura + 50, btn_altura)
     
     def desenhar_tabuleiro_pequeno(tela, tabuleiro, x, y, tam_peca, cor_fundo=(0, 150, 200), destacar=False):
-        """Desenha um tabuleiro pequeno em uma posição específica."""
         for i in range(TAMANHO):
             for j in range(TAMANHO):
                 valor = tabuleiro[i][j]
@@ -541,7 +515,6 @@ def visualizar_passo_a_passo(passos, algoritmo):
                 pygame.draw.rect(tela, cor_borda, rect, borda_largura)
     
     def desenhar_botao(tela, rect, texto, cor=(100, 100, 100)):
-        """Desenha um botão."""
         pygame.draw.rect(tela, cor, rect)
         pygame.draw.rect(tela, (255, 255, 255), rect, 2)
         label = fonte_pequena.render(texto, True, (255, 255, 255))
@@ -564,7 +537,7 @@ def visualizar_passo_a_passo(passos, algoritmo):
                 elif btn_velocidade.collidepoint(evento.pos):
                     velocidade = 3 if velocidade == 1 else 1
                 elif btn_pular.collidepoint(evento.pos):
-                    return  # Pula para a solução final
+                    return
             elif evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_SPACE:
                     pausado = not pausado
@@ -577,28 +550,22 @@ def visualizar_passo_a_passo(passos, algoritmo):
                 elif evento.key == pygame.K_ESCAPE:
                     return
         
-        # Avança automaticamente se não estiver pausado
         if not pausado:
             passo_atual += 1
             if passo_atual >= len(passos):
-                return  # Terminou a visualização
+                return
         
-        # Obtém o passo atual
         passo = passos[passo_atual]
         
-        # Limpa a tela
         tela.fill((30, 30, 30))
         
-        # Título
         titulo = fonte_titulo.render(f"Algoritmo: {algoritmo} - Passo {passo_atual + 1} de {len(passos)}", True, (255, 255, 255))
         tela.blit(titulo, (margem_esquerda, 20))
         
-        # Desenha o nó atual sendo expandido
         label_atual = fonte_titulo.render("Nó Atual (Expandindo):", True, (255, 200, 100))
         tela.blit(label_atual, (margem_esquerda, margem_topo - 30))
         desenhar_tabuleiro_pequeno(tela, passo["atual"], margem_esquerda, margem_topo, tam_peca_pequeno, cor_fundo=(200, 100, 50), destacar=True)
         
-        # Estatísticas ao lado do nó atual
         stats_x = margem_esquerda + TAMANHO * tam_peca_pequeno + 30
         stats_y = margem_topo
         stats = [
@@ -620,7 +587,6 @@ def visualizar_passo_a_passo(passos, algoritmo):
             texto_stat = fonte_pequena.render(stat, True, (255, 255, 255))
             tela.blit(texto_stat, (stats_x, stats_y + idx * 25))
         
-        # Desenha a fronteira (primeiros estados)
         label_fronteira = fonte_titulo.render("Fronteira (próximos candidatos):", True, (100, 200, 255))
         fronteira_y = margem_topo + TAMANHO * tam_peca_pequeno + 50
         tela.blit(label_fronteira, (margem_esquerda, fronteira_y - 30))
@@ -637,14 +603,12 @@ def visualizar_passo_a_passo(passos, algoritmo):
             texto_mais = fonte_pequena.render(f"... e mais {len(passo['fronteira']) - max_mostrar} estados na fronteira", True, (180, 180, 180))
             tela.blit(texto_mais, (margem_esquerda, fronteira_y + 2 * (TAMANHO * tam_peca_pequeno + 10) + 10))
         
-        # Desenha os botões de controle
         desenhar_botao(tela, btn_anterior, "← Anterior")
         desenhar_botao(tela, btn_proximo, "Próximo →")
         desenhar_botao(tela, btn_play_pause, "⏸ Pausar" if not pausado else "▶ Play")
         desenhar_botao(tela, btn_velocidade, f"Velocidade: {velocidade}x")
         desenhar_botao(tela, btn_pular, "Pular para Final", cor=(150, 50, 50))
         
-        # Instruções
         instrucoes = fonte_pequena.render("Controles: Setas ←/→, Espaço (pausar), ESC (sair)", True, (150, 150, 150))
         tela.blit(instrucoes, (margem_esquerda, btn_y - 30))
         
@@ -683,7 +647,6 @@ if __name__ == "__main__":
         pygame.quit()
         sys.exit()
 
-    # Executa o algoritmo escolhido
     if algoritmo == "BFS":
         caminho, metricas, passos = resolver_puzzle_bfs(inicio)
     elif algoritmo == "DFS":
@@ -698,9 +661,7 @@ if __name__ == "__main__":
         sys.exit()
 
     if caminho:
-        # Primeiro mostra o passo a passo
         visualizar_passo_a_passo(passos, algoritmo)
-        # Depois mostra a solução final
         animar_solucao(caminho, metricas)
     else:
         print("Nenhuma solução encontrada devido ao limite de profundidade.")
