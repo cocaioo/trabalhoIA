@@ -178,7 +178,6 @@ def entrada_tabuleiro_inicial():
             return tabuleiro, algoritmo_escolhido
 
         botoes = [("BFS", btn_bfs), ("DFS", btn_dfs), ("Guloso", btn_guloso), ("A*", btn_a_estrela)] if numero_atual > 8 else None
-        #botoes = [("Resolver BFS", btn_bfs), ("Resolver DFS", btn_dfs), ("Resolver Guloso", btn_guloso), ("Resolver A*", btn_aestrela)] if numero_atual > 8 else None
         
         desenhar_tabuleiro(tela, [[c if c is not None else 0 for c in r] for r in tabuleiro], fonte, botoes=botoes)
 
@@ -252,10 +251,14 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
         gerados = 1
         expandidos = 0
         passos = []
+        profundidade_anterior = 0
 
         while pilha:
             atual = pilha.pop()
             expandidos += 1
+
+            # Detecta backtracking: quando a profundidade diminui
+            backtracking = atual.profundidade < profundidade_anterior
 
             pilha_estados = [[list(r) for r in e.tabuleiro] for e in list(pilha)[:10]]
             passos.append({
@@ -264,8 +267,12 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
                 "visitados": len(visitados),
                 "gerados": gerados,
                 "expandidos": expandidos,
-                "limite": limite
+                "limite": limite,
+                "profundidade_atual": atual.profundidade,
+                "backtracking": backtracking
             })
+            
+            profundidade_anterior = atual.profundidade
 
             if eh_estado_objetivo(atual.tabuleiro):
                 caminho = []
@@ -294,7 +301,21 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
         resultado, estatisticas, passos = dfs_limitado(limite)
         total_gerados += estatisticas["generated"]
         total_expandidos += estatisticas["expanded"]
-        todos_passos.extend(passos)
+        
+        # Remove duplicatas consecutivas do estado inicial entre iterações
+        for passo in passos:
+            # Adiciona o passo se for diferente do último passo adicionado
+            if not todos_passos or passo["atual"] != todos_passos[-1]["atual"]:
+                todos_passos.append(passo)
+            # Se for igual, atualiza apenas as métricas (que mudaram)
+            elif passo["atual"] == todos_passos[-1]["atual"]:
+                todos_passos[-1].update({
+                    "gerados": passo["gerados"],
+                    "expandidos": passo["expandidos"],
+                    "visitados": passo["visitados"],
+                    "limite": passo["limite"]
+                })
+        
         if resultado:
             tempo_passado = time.time() - tempo_inicio
             return resultado, {"generated": total_gerados, "expanded": total_expandidos, "depth": len(resultado) - 1, "time": tempo_passado}, todos_passos
@@ -487,6 +508,7 @@ def visualizar_passo_a_passo(passos, algoritmo):
     passo_atual = 0
     pausado = True
     velocidade = 1
+    tempo_ultimo_passo = 0
     
     tam_peca_pequeno = 50
     margem_esquerda = 50
@@ -554,9 +576,14 @@ def visualizar_passo_a_passo(passos, algoritmo):
                     return
         
         if not pausado:
-            passo_atual += 1
-            if passo_atual >= len(passos):
-                return
+            tempo_atual = pygame.time.get_ticks()
+            intervalo = 1000 / velocidade
+            if tempo_atual - tempo_ultimo_passo >= intervalo:
+                passo_atual += 1
+                tempo_ultimo_passo = tempo_atual
+                if passo_atual >= len(passos):
+                    pausado = True
+                    passo_atual = len(passos) - 1
         
         passo = passos[passo_atual]
         
@@ -567,6 +594,45 @@ def visualizar_passo_a_passo(passos, algoritmo):
         
         label_atual = fonte_titulo.render("Nó Atual (Expandindo):", True, (255, 200, 100))
         tela.blit(label_atual, (margem_esquerda, margem_topo - 30))
+        
+        # Exibe mensagem de backtracking se detectado (apenas DFS) - CANTO INFERIOR DIREITO
+        if passo.get("backtracking", False):
+            fonte_backtrack = pygame.font.SysFont("Arial", 26, bold=True)
+            msg_backtrack = fonte_backtrack.render("⚠️ BACKTRACKING ⚠️", True, (255, 255, 255))
+            
+            # Banner vermelho no canto inferior direito
+            largura_banner = 350
+            altura_banner = 80
+            margem_direita = 20
+            margem_inferior = 100
+            
+            x_banner = largura_viz - largura_banner - margem_direita
+            y_banner = altura_viz - altura_banner - margem_inferior
+            
+            rect_backtrack = pygame.Rect(x_banner, y_banner, largura_banner, altura_banner)
+            
+            # Fundo vermelho com sombra
+            sombra = pygame.Rect(x_banner + 3, y_banner + 3, largura_banner, altura_banner)
+            pygame.draw.rect(tela, (40, 10, 10), sombra, border_radius=10)
+            
+            pygame.draw.rect(tela, (150, 20, 20), rect_backtrack, border_radius=10)
+            pygame.draw.rect(tela, (255, 100, 100), rect_backtrack, 5, border_radius=10)
+            
+            # Texto principal centralizado
+            texto_rect = msg_backtrack.get_rect(center=(rect_backtrack.centerx, rect_backtrack.centery - 12))
+            tela.blit(msg_backtrack, texto_rect)
+            
+            # Texto explicativo
+            fonte_explicacao = pygame.font.SysFont("Arial", 13, bold=False)
+            explicacao = fonte_explicacao.render("Voltando para explorar", True, (255, 220, 220))
+            explicacao2 = fonte_explicacao.render("outro caminho", True, (255, 220, 220))
+            
+            exp_rect = explicacao.get_rect(center=(rect_backtrack.centerx, rect_backtrack.centery + 15))
+            exp2_rect = explicacao2.get_rect(center=(rect_backtrack.centerx, rect_backtrack.centery + 30))
+            
+            tela.blit(explicacao, exp_rect)
+            tela.blit(explicacao2, exp2_rect)
+        
         desenhar_tabuleiro_pequeno(tela, passo["atual"], margem_esquerda, margem_topo, tam_peca_pequeno, cor_fundo=(200, 100, 50), destacar=True)
         
         stats_x = margem_esquerda + TAMANHO * tam_peca_pequeno + 30
@@ -585,6 +651,8 @@ def visualizar_passo_a_passo(passos, algoritmo):
             stats.append(f"Custo f(n): {passo['custo_f']}")
         if 'limite' in passo:
             stats.append(f"Limite DFS: {passo['limite']}")
+        if 'profundidade_atual' in passo:
+            stats.append(f"Profundidade: {passo['profundidade_atual']}")
         
         for idx, stat in enumerate(stats):
             texto_stat = fonte_pequena.render(stat, True, (255, 255, 255))
@@ -616,7 +684,7 @@ def visualizar_passo_a_passo(passos, algoritmo):
         tela.blit(instrucoes, (margem_esquerda, btn_y - 30))
         
         pygame.display.flip()
-        relogio.tick(velocidade if not pausado else 30)
+        relogio.tick(60)
 
 def animar_solucao(estados, metricas):
     pygame.init()
@@ -626,7 +694,7 @@ def animar_solucao(estados, metricas):
     fonte = pygame.font.SysFont("Arial", tamanho_fonte, bold=True)
     relogio = pygame.time.Clock()
 
-    for tabuleiro in estados:
+    for i, tabuleiro in enumerate(estados):
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 pygame.quit()
