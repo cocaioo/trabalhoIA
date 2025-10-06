@@ -132,8 +132,6 @@ def entrada_tabuleiro_inicial():
     btn_dfs = pygame.Rect(esquerda_x + largura_btn + espaco_entre_btns, ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
     btn_guloso = pygame.Rect(esquerda_x + 2 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
     btn_a_estrela = pygame.Rect(esquerda_x + 3 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 180, largura_btn, altura_btn)
-    
-    #btn_aestrela = pygame.Rect(esquerda_x + 3 * (largura_btn + espaco_entre_btns), ALTURA_JANELA - altura_btn - 20, largura_btn, altura_btn)
 
     while True:
         for evento in pygame.event.get():
@@ -167,7 +165,6 @@ def entrada_tabuleiro_inicial():
                                 tabuleiro[i][j] = 0
                     algoritmo_escolhido = "GULOSO"
                 elif btn_a_estrela.collidepoint(evento.pos) and numero_atual > 8:
-                #elif btn_aestrela.collidepoint(evento.pos) and numero_atual > 8:
                     for i in range(TAMANHO):
                         for j in range(TAMANHO):
                             if tabuleiro[i][j] is None:
@@ -242,63 +239,93 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
 
     tupla_inicio = tuple(map(tuple, inicio_tabuleiro))
 
-    def dfs_limitado(limite):
+    def dfs_classico(limite):
+        # Inicia com o estado inicial na pilha
         linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
         pilha = [EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, 0)]
-        visitados = set([tupla_inicio])
         pai = {tupla_inicio: None}
-
+        
         gerados = 1
         expandidos = 0
         passos = []
-        profundidade_anterior = 0
-
+        profundidade_anterior = -1
+        
         while pilha:
+            # Remove do TOPO da pilha (último que entrou)
             atual = pilha.pop()
             expandidos += 1
-
-            # Detecta backtracking: quando a profundidade diminui
-            backtracking = atual.profundidade < profundidade_anterior
-
-            pilha_estados = [[list(r) for r in e.tabuleiro] for e in list(pilha)[:10]]
-            passos.append({
-                "atual": [r[:] for r in atual.tabuleiro],
-                "fronteira": pilha_estados,
-                "visitados": len(visitados),
-                "gerados": gerados,
-                "expandidos": expandidos,
-                "limite": limite,
-                "profundidade_atual": atual.profundidade,
-                "backtracking": backtracking
-            })
             
+            # Detecta backtracking: profundidade diminuiu
+            backtracking = atual.profundidade < profundidade_anterior
             profundidade_anterior = atual.profundidade
-
+            
+            # Verifica se é o objetivo
             if eh_estado_objetivo(atual.tabuleiro):
+                # Registra o passo final
+                passos.append({
+                    "atual": [r[:] for r in atual.tabuleiro],
+                    "fronteira": [],
+                    "visitados": expandidos,
+                    "gerados": gerados,
+                    "expandidos": expandidos,
+                    "limite": limite,
+                    "profundidade_atual": atual.profundidade,
+                    "backtracking": backtracking
+                })
+                # Reconstrói o caminho
                 caminho = []
                 tupla_estado = tuple(map(tuple, atual.tabuleiro))
                 while tupla_estado is not None:
                     caminho.append([list(r) for r in tupla_estado])
                     tupla_estado = pai[tupla_estado]
                 return caminho[::-1], {"generated": gerados, "expanded": expandidos, "depth": atual.profundidade}, passos
-
+            
+            # Se não atingiu o limite, expande os sucessores
+            sucessores_gerados = []  # Lista para mostrar na visualização
             if atual.profundidade < limite:
+                # Gera todos os sucessores na ordem dos MOVIMENTOS
+                sucessores = []
                 for dx, dy in MOVIMENTOS:
                     nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
                     if eh_valido(nlinha, ncoluna):
+                        # Cria novo estado
                         novo_tabuleiro = [r[:] for r in atual.tabuleiro]
-                        novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
-                        t = tuple(map(tuple, novo_tabuleiro))
-                        if t not in visitados:
-                            visitados.add(t)
-                            pai[t] = tuple(map(tuple, atual.tabuleiro))
-                            pilha.append(EstadoPuzzle(novo_tabuleiro, nlinha, ncoluna, atual.profundidade + 1))
+                        novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = \
+                            novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
+                        
+                        # Evita voltar ao estado pai imediatamente
+                        tupla_novo = tuple(map(tuple, novo_tabuleiro))
+                        tupla_atual = tuple(map(tuple, atual.tabuleiro))
+                        if pai.get(tupla_atual) != tupla_novo:
+                            sucessores.append(EstadoPuzzle(novo_tabuleiro, nlinha, ncoluna, atual.profundidade + 1))
+                            pai[tupla_novo] = tupla_atual
                             gerados += 1
-
+                
+                # Adiciona sucessores na pilha em ordem DIRETA
+                # O ÚLTIMO da lista fica no TOPO e é explorado primeiro (DFS em profundidade)
+                for sucessor in sucessores:
+                    pilha.append(sucessor)
+                
+                # Guarda os sucessores gerados para mostrar na visualização
+                sucessores_gerados = [[list(r) for r in s.tabuleiro] for s in sucessores]
+            # Registra o passo mostrando apenas os sucessores recém-gerados
+            passos.append({
+                "atual": [r[:] for r in atual.tabuleiro],
+                "fronteira": sucessores_gerados,  # Mostra apenas filhos deste nó
+                "visitados": expandidos,
+                "gerados": gerados,
+                "expandidos": expandidos,
+                "limite": limite,
+                "profundidade_atual": atual.profundidade,
+                "backtracking": backtracking
+            })
+        
+        # Não encontrou solução neste limite
         return None, {"generated": gerados, "expanded": expandidos, "depth": None}, passos
 
-    for limite in range(0, limite_maximo + 1):
-        resultado, estatisticas, passos = dfs_limitado(limite)
+    # Começa com limite 5 para ver melhor a exploração em profundidade
+    for limite in range(5, limite_maximo + 1):
+        resultado, estatisticas, passos = dfs_classico(limite)
         total_gerados += estatisticas["generated"]
         total_expandidos += estatisticas["expanded"]
         
