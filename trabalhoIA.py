@@ -240,7 +240,6 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
     tupla_inicio = tuple(map(tuple, inicio_tabuleiro))
 
     def dfs_classico(limite):
-        # Inicia com o estado inicial na pilha
         linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
         pilha = [EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, 0)]
         pai = {tupla_inicio: None}
@@ -251,17 +250,13 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
         profundidade_anterior = -1
         
         while pilha:
-            # Remove do TOPO da pilha (último que entrou)
             atual = pilha.pop()
             expandidos += 1
             
-            # Detecta backtracking: profundidade diminuiu
             backtracking = atual.profundidade < profundidade_anterior
             profundidade_anterior = atual.profundidade
             
-            # Verifica se é o objetivo
             if eh_estado_objetivo(atual.tabuleiro):
-                # Registra o passo final
                 passos.append({
                     "atual": [r[:] for r in atual.tabuleiro],
                     "fronteira": [],
@@ -272,7 +267,7 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
                     "profundidade_atual": atual.profundidade,
                     "backtracking": backtracking
                 })
-                # Reconstrói o caminho
+
                 caminho = []
                 tupla_estado = tuple(map(tuple, atual.tabuleiro))
                 while tupla_estado is not None:
@@ -280,20 +275,16 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
                     tupla_estado = pai[tupla_estado]
                 return caminho[::-1], {"generated": gerados, "expanded": expandidos, "depth": atual.profundidade}, passos
             
-            # Se não atingiu o limite, expande os sucessores
-            sucessores_gerados = []  # Lista para mostrar na visualização
+            sucessores_gerados = [] 
             if atual.profundidade < limite:
-                # Gera todos os sucessores na ordem dos MOVIMENTOS
                 sucessores = []
                 for dx, dy in MOVIMENTOS:
                     nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
                     if eh_valido(nlinha, ncoluna):
-                        # Cria novo estado
                         novo_tabuleiro = [r[:] for r in atual.tabuleiro]
                         novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = \
                             novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
                         
-                        # Evita voltar ao estado pai imediatamente
                         tupla_novo = tuple(map(tuple, novo_tabuleiro))
                         tupla_atual = tuple(map(tuple, atual.tabuleiro))
                         if pai.get(tupla_atual) != tupla_novo:
@@ -301,17 +292,14 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
                             pai[tupla_novo] = tupla_atual
                             gerados += 1
                 
-                # Adiciona sucessores na pilha em ordem DIRETA
-                # O ÚLTIMO da lista fica no TOPO e é explorado primeiro (DFS em profundidade)
                 for sucessor in sucessores:
                     pilha.append(sucessor)
                 
-                # Guarda os sucessores gerados para mostrar na visualização
                 sucessores_gerados = [[list(r) for r in s.tabuleiro] for s in sucessores]
-            # Registra o passo mostrando apenas os sucessores recém-gerados
+
             passos.append({
                 "atual": [r[:] for r in atual.tabuleiro],
-                "fronteira": sucessores_gerados,  # Mostra apenas filhos deste nó
+                "fronteira": sucessores_gerados, 
                 "visitados": expandidos,
                 "gerados": gerados,
                 "expandidos": expandidos,
@@ -320,22 +308,16 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
                 "backtracking": backtracking
             })
         
-        # Não encontrou solução neste limite
         return None, {"generated": gerados, "expanded": expandidos, "depth": None}, passos
 
-    # Começa com limite alto (30) para visualização didática da DFS
-    # O algoritmo explora em profundidade sem limitações artificiais na interface
     for limite in range(30, limite_maximo + 1):
         resultado, estatisticas, passos = dfs_classico(limite)
         total_gerados += estatisticas["generated"]
         total_expandidos += estatisticas["expanded"]
         
-        # Remove duplicatas consecutivas do estado inicial entre iterações
         for passo in passos:
-            # Adiciona o passo se for diferente do último passo adicionado
             if not todos_passos or passo["atual"] != todos_passos[-1]["atual"]:
                 todos_passos.append(passo)
-            # Se for igual, atualiza apenas as métricas (que mudaram)
             elif passo["atual"] == todos_passos[-1]["atual"]:
                 todos_passos[-1].update({
                     "gerados": passo["gerados"],
@@ -623,12 +605,10 @@ def visualizar_passo_a_passo(passos, algoritmo):
         label_atual = fonte_titulo.render("Nó Atual (Expandindo):", True, (255, 200, 100))
         tela.blit(label_atual, (margem_esquerda, margem_topo - 30))
         
-        # Exibe mensagem de backtracking se detectado (apenas DFS) - CANTO INFERIOR DIREITO
         if passo.get("backtracking", False):
             fonte_backtrack = pygame.font.SysFont("Arial", 26, bold=True)
             msg_backtrack = fonte_backtrack.render("⚠️ BACKTRACKING ⚠️", True, (255, 255, 255))
             
-            # Banner vermelho no canto inferior direito
             largura_banner = 350
             altura_banner = 80
             margem_direita = 20
@@ -639,18 +619,15 @@ def visualizar_passo_a_passo(passos, algoritmo):
             
             rect_backtrack = pygame.Rect(x_banner, y_banner, largura_banner, altura_banner)
             
-            # Fundo vermelho com sombra
             sombra = pygame.Rect(x_banner + 3, y_banner + 3, largura_banner, altura_banner)
             pygame.draw.rect(tela, (40, 10, 10), sombra, border_radius=10)
             
             pygame.draw.rect(tela, (150, 20, 20), rect_backtrack, border_radius=10)
             pygame.draw.rect(tela, (255, 100, 100), rect_backtrack, 5, border_radius=10)
             
-            # Texto principal centralizado
             texto_rect = msg_backtrack.get_rect(center=(rect_backtrack.centerx, rect_backtrack.centery - 12))
             tela.blit(msg_backtrack, texto_rect)
             
-            # Texto explicativo
             fonte_explicacao = pygame.font.SysFont("Arial", 13, bold=False)
             explicacao = fonte_explicacao.render("Voltando para explorar", True, (255, 220, 220))
             explicacao2 = fonte_explicacao.render("outro caminho", True, (255, 220, 220))
@@ -690,7 +667,6 @@ def visualizar_passo_a_passo(passos, algoritmo):
         fronteira_y = margem_topo + TAMANHO * tam_peca_pequeno + 50
         tela.blit(label_fronteira, (margem_esquerda, fronteira_y - 30))
         
-        # Se a fronteira está vazia, mostra mensagem explicativa
         if len(passo["fronteira"]) == 0:
             fonte_aviso = pygame.font.SysFont("Arial", 18, bold=True)
             if passo.get('profundidade_atual', 0) >= passo.get('limite', 999):
