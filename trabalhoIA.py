@@ -323,8 +323,9 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
         # Não encontrou solução neste limite
         return None, {"generated": gerados, "expanded": expandidos, "depth": None}, passos
 
-    # Começa com limite 5 para ver melhor a exploração em profundidade
-    for limite in range(5, limite_maximo + 1):
+    # Começa com limite alto (30) para visualização didática da DFS
+    # O algoritmo explora em profundidade sem limitações artificiais na interface
+    for limite in range(30, limite_maximo + 1):
         resultado, estatisticas, passos = dfs_classico(limite)
         total_gerados += estatisticas["generated"]
         total_expandidos += estatisticas["expanded"]
@@ -688,6 +689,19 @@ def visualizar_passo_a_passo(passos, algoritmo):
         label_fronteira = fonte_titulo.render("Fronteira (próximos candidatos):", True, (100, 200, 255))
         fronteira_y = margem_topo + TAMANHO * tam_peca_pequeno + 50
         tela.blit(label_fronteira, (margem_esquerda, fronteira_y - 30))
+        
+        # Se a fronteira está vazia, mostra mensagem explicativa
+        if len(passo["fronteira"]) == 0:
+            fonte_aviso = pygame.font.SysFont("Arial", 18, bold=True)
+            if passo.get('profundidade_atual', 0) >= passo.get('limite', 999):
+                msg = "⛔ Limite de profundidade atingido - sem expansão"
+                cor_msg = (255, 180, 100)
+            else:
+                msg = "✓ Nó sem sucessores válidos (todos bloqueados ou folha)"
+                cor_msg = (150, 150, 150)
+            
+            texto_aviso = fonte_aviso.render(msg, True, cor_msg)
+            tela.blit(texto_aviso, (margem_esquerda, fronteira_y))
         
         max_mostrar = min(8, len(passo["fronteira"]))
         for idx, tabuleiro_front in enumerate(passo["fronteira"][:max_mostrar]):
