@@ -198,10 +198,9 @@ def resolver_puzzle_bfs(inicio_tabuleiro):
         atual = fila.popleft()
         expandidos += 1
 
-        fronteira_estados = [[list(r) for r in e.tabuleiro] for e in list(fila)[:10]]
         passos.append({
             "atual": [r[:] for r in atual.tabuleiro],
-            "fronteira": fronteira_estados,
+            "fronteira": [],
             "visitados": len(visitados),
             "gerados": gerados,
             "expandidos": expandidos
@@ -216,6 +215,7 @@ def resolver_puzzle_bfs(inicio_tabuleiro):
             tempo_passado = time.time() - tempo_inicio
             return caminho[::-1], {"generated": gerados, "expanded": expandidos, "depth": atual.profundidade, "time": tempo_passado}, passos
 
+        sucessores_gerados = []
         for dx, dy in MOVIMENTOS:
             nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
             if eh_valido(nlinha, ncoluna):
@@ -227,6 +227,15 @@ def resolver_puzzle_bfs(inicio_tabuleiro):
                     pai[t] = tuple(map(tuple, atual.tabuleiro))
                     fila.append(EstadoPuzzle(novo_tabuleiro, nlinha, ncoluna, atual.profundidade + 1))
                     gerados += 1
+                    sucessores_gerados.append([r[:] for r in novo_tabuleiro])
+        
+        passos.append({
+            "atual": [r[:] for r in atual.tabuleiro],
+            "fronteira": sucessores_gerados,
+            "visitados": len(visitados),
+            "gerados": gerados,
+            "expandidos": expandidos
+        })
     return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": time.time() - tempo_inicio}, passos
 
 
@@ -256,18 +265,18 @@ def resolver_puzzle_dfs(inicio_tabuleiro):
             backtracking = atual.profundidade < profundidade_anterior
             profundidade_anterior = atual.profundidade
             
+            passos.append({
+                "atual": [r[:] for r in atual.tabuleiro],
+                "fronteira": [],
+                "visitados": expandidos,
+                "gerados": gerados,
+                "expandidos": expandidos,
+                "limite": limite,
+                "profundidade_atual": atual.profundidade,
+                "backtracking": backtracking
+            })
+            
             if eh_estado_objetivo(atual.tabuleiro):
-                passos.append({
-                    "atual": [r[:] for r in atual.tabuleiro],
-                    "fronteira": [],
-                    "visitados": expandidos,
-                    "gerados": gerados,
-                    "expandidos": expandidos,
-                    "limite": limite,
-                    "profundidade_atual": atual.profundidade,
-                    "backtracking": backtracking
-                })
-
                 caminho = []
                 tupla_estado = tuple(map(tuple, atual.tabuleiro))
                 while tupla_estado is not None:
@@ -368,10 +377,9 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
 
         tupla_atual = tuple(map(tuple, atual.tabuleiro))
 
-        fronteira_estados = [[list(r) for r in e[3].tabuleiro] for e in list(fila_prioridade)[:10]]
         passos.append({
             "atual": [r[:] for r in atual.tabuleiro],
-            "fronteira": fronteira_estados,
+            "fronteira": [],
             "visitados": len(visitados),
             "gerados": gerados,
             "expandidos": expandidos,
@@ -393,6 +401,7 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
                 "depth": atual.profundidade, 
                 "time": tempo_passado}, passos
         
+        sucessores_gerados = []
         for dx, dy in MOVIMENTOS:
             nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy 
 
@@ -404,19 +413,29 @@ def resolver_puzzle_guloso(inicio_tabuleiro):
                 
                 if t not in visitados:
                     soma_nova = calcula_heuristica(novo_tabuleiro)
-                    
                     novo_estado = EstadoPuzzle(
                         tabuleiro=novo_tabuleiro, 
                         linha_zero=nlinha, 
                         coluna_zero=ncoluna, 
                         profundidade=atual.profundidade + 1
                     )
-                    
                     heapq.heappush(fila_prioridade, (soma_nova, novo_estado.profundidade, next(contador_guloso), novo_estado))
-                    
                     visitados.add(t)
                     pai[t] = tupla_atual
                     gerados += 1
+                    sucessores_gerados.append((novo_tabuleiro, soma_nova))
+        
+        fronteira_estados = [s[0] for s in sucessores_gerados]
+        fronteira_h = [s[1] for s in sucessores_gerados]
+        passos.append({
+            "atual": [r[:] for r in atual.tabuleiro],
+            "fronteira": fronteira_estados,
+            "fronteira_heuristicas": fronteira_h,
+            "visitados": len(visitados),
+            "gerados": gerados,
+            "expandidos": expandidos,
+            "heuristica": calcula_heuristica(atual.tabuleiro)
+        })
 
     tempo_passado = time.time() - tempo_inicio
     return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": tempo_passado}, passos
@@ -444,10 +463,9 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
         
         tupla_atual = tuple(map(tuple, atual.tabuleiro))
         
-        fronteira_estados = [[list(r) for r in e[3].tabuleiro] for e in list(fila_prioridade)[:10]]
         passos.append({
             "atual": [r[:] for r in atual.tabuleiro],
-            "fronteira": fronteira_estados,
+            "fronteira": [],
             "visitados": len(visitados),
             "gerados": gerados,
             "expandidos": expandidos,
@@ -471,6 +489,7 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
                 "time": tempo_passado
             }, passos
         
+        sucessores_gerados = []
         for dx, dy in MOVIMENTOS:
             nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
             
@@ -498,6 +517,25 @@ def resolver_puzzle_a_estrela(inicio_tabuleiro):
                     visitados.add(t)
                     pai[t] = tupla_atual
                     gerados += 1
+                    sucessores_gerados.append((novo_tabuleiro, h_novo, g_novo, f_novo))
+        
+        fronteira_estados = [s[0] for s in sucessores_gerados]
+        fronteira_h = [s[1] for s in sucessores_gerados]
+        fronteira_g = [s[2] for s in sucessores_gerados]
+        fronteira_f = [s[3] for s in sucessores_gerados]
+        passos.append({
+            "atual": [r[:] for r in atual.tabuleiro],
+            "fronteira": fronteira_estados,
+            "fronteira_heuristicas": fronteira_h,
+            "fronteira_g": fronteira_g,
+            "fronteira_f": fronteira_f,
+            "visitados": len(visitados),
+            "gerados": gerados,
+            "expandidos": expandidos,
+            "heuristica": h_atual,
+            "custo_g": atual.profundidade,
+            "custo_f": f_atual
+        })
     
     tempo_passado = time.time() - tempo_inicio
     return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": tempo_passado}, passos
@@ -666,18 +704,6 @@ def visualizar_passo_a_passo(passos, algoritmo):
         label_fronteira = fonte_titulo.render("Fronteira (próximos candidatos):", True, (100, 200, 255))
         fronteira_y = margem_topo + TAMANHO * tam_peca_pequeno + 50
         tela.blit(label_fronteira, (margem_esquerda, fronteira_y - 30))
-        
-        if len(passo["fronteira"]) == 0:
-            fonte_aviso = pygame.font.SysFont("Arial", 18, bold=True)
-            if passo.get('profundidade_atual', 0) >= passo.get('limite', 999):
-                msg = "⛔ Limite de profundidade atingido - sem expansão"
-                cor_msg = (255, 180, 100)
-            else:
-                msg = "✓ Nó sem sucessores válidos (todos bloqueados ou folha)"
-                cor_msg = (150, 150, 150)
-            
-            texto_aviso = fonte_aviso.render(msg, True, cor_msg)
-            tela.blit(texto_aviso, (margem_esquerda, fronteira_y))
         
         max_mostrar = min(8, len(passo["fronteira"]))
         for idx, tabuleiro_front in enumerate(passo["fronteira"][:max_mostrar]):
