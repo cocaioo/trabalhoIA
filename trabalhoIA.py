@@ -686,6 +686,22 @@ def visualizar_passo_a_passo(passos, algoritmo):
             x = margem_esquerda + col * (TAMANHO * tam_peca_pequeno + 20)
             y = fronteira_y + row * (TAMANHO * tam_peca_pequeno + 10)
             desenhar_tabuleiro_pequeno(tela, tabuleiro_front, x, y, tam_peca_pequeno, cor_fundo=(50, 150, 200))
+            
+            y_texto = y + TAMANHO * tam_peca_pequeno + 2
+            fonte_info = pygame.font.SysFont("Arial", 11, bold=True)
+            
+            if 'fronteira_heuristicas' in passo and idx < len(passo['fronteira_heuristicas']):
+                h_val = passo['fronteira_heuristicas'][idx]
+                
+                if 'fronteira_g' in passo and 'fronteira_f' in passo:
+                    g_val = passo['fronteira_g'][idx]
+                    f_val = passo['fronteira_f'][idx]
+                    texto_info = fonte_info.render(f"h={h_val} g={g_val} f={f_val}", True, (255, 255, 100))
+                else:
+                    texto_info = fonte_info.render(f"h(n) = {h_val}", True, (255, 255, 100))
+                
+                texto_rect = texto_info.get_rect(centerx=x + (TAMANHO * tam_peca_pequeno) // 2, y=y_texto)
+                tela.blit(texto_info, texto_rect)
         
         if len(passo["fronteira"]) > max_mostrar:
             texto_mais = fonte_pequena.render(f"... e mais {len(passo['fronteira']) - max_mostrar} estados na fronteira", True, (180, 180, 180))
