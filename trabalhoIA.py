@@ -240,107 +240,81 @@ def resolver_puzzle_bfs(inicio_tabuleiro):
 
 
 def resolver_puzzle_dfs(inicio_tabuleiro):
-    limite_maximo = 50
-    total_gerados = 0
-    total_expandidos = 0
+    limite = 50
     tempo_inicio = time.time()
-    todos_passos = []
-
     tupla_inicio = tuple(map(tuple, inicio_tabuleiro))
-
-    def dfs_classico(limite):
-        linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
-        pilha = [EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, 0)]
-        pai = {tupla_inicio: None}
+    
+    linha_zero, coluna_zero = encontra_zero(inicio_tabuleiro)
+    pilha = [EstadoPuzzle([r[:] for r in inicio_tabuleiro], linha_zero, coluna_zero, 0)]
+    pai = {tupla_inicio: None}
+    
+    gerados = 1
+    expandidos = 0
+    passos = []
+    profundidade_anterior = -1
+    
+    while pilha:
+        atual = pilha.pop()
+        expandidos += 1
         
-        gerados = 1
-        expandidos = 0
-        passos = []
-        profundidade_anterior = -1
+        backtracking = atual.profundidade < profundidade_anterior
+        profundidade_anterior = atual.profundidade
         
-        while pilha:
-            atual = pilha.pop()
-            expandidos += 1
-            
-            backtracking = atual.profundidade < profundidade_anterior
-            profundidade_anterior = atual.profundidade
-            
-            passos.append({
-                "atual": [r[:] for r in atual.tabuleiro],
-                "fronteira": [],
-                "visitados": expandidos,
-                "gerados": gerados,
-                "expandidos": expandidos,
-                "limite": limite,
-                "profundidade_atual": atual.profundidade,
-                "backtracking": backtracking
-            })
-            
-            if eh_estado_objetivo(atual.tabuleiro):
-                caminho = []
-                tupla_estado = tuple(map(tuple, atual.tabuleiro))
-                while tupla_estado is not None:
-                    caminho.append([list(r) for r in tupla_estado])
-                    tupla_estado = pai[tupla_estado]
-                return caminho[::-1], {"generated": gerados, "expanded": expandidos, "depth": atual.profundidade}, passos
-            
-            sucessores_gerados = [] 
-            if atual.profundidade < limite:
-                sucessores = []
-                for dx, dy in MOVIMENTOS:
-                    nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
-                    if eh_valido(nlinha, ncoluna):
-                        novo_tabuleiro = [r[:] for r in atual.tabuleiro]
-                        novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = \
-                            novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
-                        
-                        tupla_novo = tuple(map(tuple, novo_tabuleiro))
-                        tupla_atual = tuple(map(tuple, atual.tabuleiro))
-                        if pai.get(tupla_atual) != tupla_novo:
-                            sucessores.append(EstadoPuzzle(novo_tabuleiro, nlinha, ncoluna, atual.profundidade + 1))
-                            pai[tupla_novo] = tupla_atual
-                            gerados += 1
-                
-                for sucessor in sucessores:
-                    pilha.append(sucessor)
-                
-                sucessores_gerados = [[list(r) for r in s.tabuleiro] for s in sucessores]
-
-            passos.append({
-                "atual": [r[:] for r in atual.tabuleiro],
-                "fronteira": sucessores_gerados, 
-                "visitados": expandidos,
-                "gerados": gerados,
-                "expandidos": expandidos,
-                "limite": limite,
-                "profundidade_atual": atual.profundidade,
-                "backtracking": backtracking
-            })
+        passos.append({
+            "atual": [r[:] for r in atual.tabuleiro],
+            "fronteira": [],
+            "visitados": expandidos,
+            "gerados": gerados,
+            "expandidos": expandidos,
+            "limite": limite,
+            "profundidade_atual": atual.profundidade,
+            "backtracking": backtracking
+        })
         
-        return None, {"generated": gerados, "expanded": expandidos, "depth": None}, passos
-
-    for limite in range(30, limite_maximo + 1):
-        resultado, estatisticas, passos = dfs_classico(limite)
-        total_gerados += estatisticas["generated"]
-        total_expandidos += estatisticas["expanded"]
-        
-        for passo in passos:
-            if not todos_passos or passo["atual"] != todos_passos[-1]["atual"]:
-                todos_passos.append(passo)
-            elif passo["atual"] == todos_passos[-1]["atual"]:
-                todos_passos[-1].update({
-                    "gerados": passo["gerados"],
-                    "expandidos": passo["expandidos"],
-                    "visitados": passo["visitados"],
-                    "limite": passo["limite"]
-                })
-        
-        if resultado:
+        if eh_estado_objetivo(atual.tabuleiro):
+            caminho = []
+            tupla_estado = tuple(map(tuple, atual.tabuleiro))
+            while tupla_estado is not None:
+                caminho.append([list(r) for r in tupla_estado])
+                tupla_estado = pai[tupla_estado]
             tempo_passado = time.time() - tempo_inicio
-            return resultado, {"generated": total_gerados, "expanded": total_expandidos, "depth": len(resultado) - 1, "time": tempo_passado}, todos_passos
+            return caminho[::-1], {"generated": gerados, "expanded": expandidos, "depth": atual.profundidade, "time": tempo_passado}, passos
+        
+        sucessores_gerados = [] 
+        if atual.profundidade < limite:
+            sucessores = []
+            for dx, dy in MOVIMENTOS:
+                nlinha, ncoluna = atual.linha_zero + dx, atual.coluna_zero + dy
+                if eh_valido(nlinha, ncoluna):
+                    novo_tabuleiro = [r[:] for r in atual.tabuleiro]
+                    novo_tabuleiro[atual.linha_zero][atual.coluna_zero], novo_tabuleiro[nlinha][ncoluna] = \
+                        novo_tabuleiro[nlinha][ncoluna], novo_tabuleiro[atual.linha_zero][atual.coluna_zero]
+                    
+                    tupla_novo = tuple(map(tuple, novo_tabuleiro))
+                    tupla_atual = tuple(map(tuple, atual.tabuleiro))
+                    if pai.get(tupla_atual) != tupla_novo:
+                        sucessores.append(EstadoPuzzle(novo_tabuleiro, nlinha, ncoluna, atual.profundidade + 1))
+                        pai[tupla_novo] = tupla_atual
+                        gerados += 1
+            
+            for sucessor in sucessores:
+                pilha.append(sucessor)
+            
+            sucessores_gerados = [[list(r) for r in s.tabuleiro] for s in sucessores]
 
+        passos.append({
+            "atual": [r[:] for r in atual.tabuleiro],
+            "fronteira": sucessores_gerados, 
+            "visitados": expandidos,
+            "gerados": gerados,
+            "expandidos": expandidos,
+            "limite": limite,
+            "profundidade_atual": atual.profundidade,
+            "backtracking": backtracking
+        })
+    
     tempo_passado = time.time() - tempo_inicio
-    return [], {"generated": total_gerados, "expanded": total_expandidos, "depth": 0, "time": tempo_passado}, todos_passos
+    return [], {"generated": gerados, "expanded": expandidos, "depth": 0, "time": tempo_passado}, passos
 
 def calcula_heuristica(tabuleiro):
     soma_total_dist = 0
